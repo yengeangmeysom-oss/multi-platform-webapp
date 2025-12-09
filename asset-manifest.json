@@ -1,0 +1,10 @@
+{
+  "files": {
+    "main.js": "/multi-platform-webapp/static/js/main.bf9b7854.js",
+    "index.html": "/multi-platform-webapp/index.html",
+    "main.bf9b7854.js.map": "/multi-platform-webapp/static/js/main.bf9b7854.js.map"
+  },
+  "entrypoints": [
+    "static/js/main.bf9b7854.js"
+  ]
+}
