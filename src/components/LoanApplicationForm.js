@@ -1,5 +1,14 @@
 import React, { useState } from "react";
 
+const AirtableAPI = {
+  apiKey: process.env.REACT_APP_AIRTABLE_API_KEY,
+  baseId: process.env.REACT_APP_AIRTABLE_BASE_ID,
+  tableName: process.env.REACT_APP_AIRTABLE_TABLE_NAME,
+  url() {
+    return `https://api.airtable.com/v0/${this.baseId}/${this.tableName}`;
+  },
+};
+
 const LoanApplicationForm = () => {
   const [formData, setFormData] = useState({
     fullName: "",
@@ -11,6 +20,8 @@ const LoanApplicationForm = () => {
 
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState(null);
 
   const validate = () => {
     const newErrors = {};
@@ -31,14 +42,42 @@ const LoanApplicationForm = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setApiError(null);
     if (!validate()) return;
 
-    // TODO: Replace with real API submit
-    console.log("Loan application submitted:", formData);
+    setLoading(true);
 
-    setSubmitted(true);
+    try {
+      const response = await fetch(AirtableAPI.url(), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${AirtableAPI.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fields: {
+            FullName: formData.fullName,
+            Email: formData.email,
+            Phone: formData.phone,
+            LoanAmount: Number(formData.loanAmount),
+            LoanPurpose: formData.loanPurpose,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || "Failed to submit application");
+      }
+
+      setSubmitted(true);
+    } catch (error) {
+      setApiError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {
@@ -67,6 +106,7 @@ const LoanApplicationForm = () => {
           onChange={handleChange}
           placeholder="Your full name"
           style={{ width: "100%", padding: 8 }}
+          disabled={loading}
         />
         {errors.fullName && <div style={{ color: "red" }}>{errors.fullName}</div>}
       </div>
@@ -81,6 +121,7 @@ const LoanApplicationForm = () => {
           onChange={handleChange}
           placeholder="email@example.com"
           style={{ width: "100%", padding: 8 }}
+          disabled={loading}
         />
         {errors.email && <div style={{ color: "red" }}>{errors.email}</div>}
       </div>
@@ -95,6 +136,7 @@ const LoanApplicationForm = () => {
           onChange={handleChange}
           placeholder="+1234567890"
           style={{ width: "100%", padding: 8 }}
+          disabled={loading}
         />
         {errors.phone && <div style={{ color: "red" }}>{errors.phone}</div>}
       </div>
@@ -110,6 +152,7 @@ const LoanApplicationForm = () => {
           placeholder="Amount in USD"
           min="0"
           style={{ width: "100%", padding: 8 }}
+          disabled={loading}
         />
         {errors.loanAmount && <div style={{ color: "red" }}>{errors.loanAmount}</div>}
       </div>
@@ -124,21 +167,29 @@ const LoanApplicationForm = () => {
           placeholder="Briefly explain your loan purpose"
           rows={4}
           style={{ width: "100%", padding: 8 }}
+          disabled={loading}
         />
       </div>
 
+      {apiError && (
+        <div style={{ color: "red", marginBottom: 12 }}>
+          Error submitting form: {apiError}
+        </div>
+      )}
+
       <button
         type="submit"
+        disabled={loading}
         style={{
           padding: "10px 20px",
-          backgroundColor: "#007bff",
+          backgroundColor: loading ? "#999" : "#007bff",
           color: "#fff",
           border: "none",
-          cursor: "pointer",
+          cursor: loading ? "not-allowed" : "pointer",
           fontSize: 16,
         }}
       >
-        Submit Application
+        {loading ? "Submitting..." : "Submit Application"}
       </button>
     </form>
   );
