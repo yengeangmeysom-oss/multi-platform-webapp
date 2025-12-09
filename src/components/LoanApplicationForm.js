@@ -21,7 +21,7 @@ export default function LoanApplicationForm() {
     setSubmitStatus("Submitting...");
 
     try {
-      const response = await fetch("http://localhost:4000/api/loan", {
+      const response = await fetch("https://loan-application-form-airtable.yengeangmey-som.workers.dev", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
