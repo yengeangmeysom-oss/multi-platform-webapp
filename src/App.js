@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import LoanApplicationForm from "./components/LoanApplicationForm";
+import LoanApplicationForm from "./LoanApplicationForm";
 
 function loadScript(src, onLoad) {
   const existingScript = document.querySelector(`script[src="${src}"]`);
@@ -37,11 +37,7 @@ const PlatformSDK = {
         () => console.log("Messenger webview closed"),
         (err) => console.error("Error closing Messenger webview", err)
       );
-    } else if (
-      this.platform === "telegram" &&
-      window.Telegram &&
-      window.Telegram.WebApp
-    ) {
+    } else if (this.platform === "telegram" && window.Telegram && window.Telegram.WebApp) {
       window.Telegram.WebApp.close();
       console.log("Telegram webview closed");
     } else {
@@ -55,11 +51,7 @@ const PlatformSDK = {
         (context) => callback(null, context),
         (error) => callback(error, null)
       );
-    } else if (
-      this.platform === "telegram" &&
-      window.Telegram &&
-      window.Telegram.WebApp
-    ) {
+    } else if (this.platform === "telegram" && window.Telegram && window.Telegram.WebApp) {
       callback(null, window.Telegram.WebApp.initDataUnsafe);
     } else {
       callback(new Error("Platform SDK not available"), null);
@@ -122,16 +114,18 @@ function App() {
         </pre>
       )}
       {error && (
-        <p style={{ color: "red", marginTop: 20 }}>Error: {error}</p>
+        <p style={{ color: "red", marginTop: 20 }}>
+          Error: {error}
+        </p>
       )}
+
+      <LoanApplicationForm />
+
       {platform === "web" && (
         <p style={{ marginTop: 20 }}>
           This is a normal web browser without platform SDK.
         </p>
       )}
-
-      {/* --- Insert Loan Application Form here --- */}
-      <LoanApplicationForm />
     </div>
   );
 }
