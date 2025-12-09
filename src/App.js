@@ -1,133 +1,227 @@
-import React, { useEffect, useState } from "react";
-import LoanApplicationForm from "./LoanApplicationForm";
-
-function loadScript(src, onLoad) {
-  const existingScript = document.querySelector(`script[src="${src}"]`);
-  if (!existingScript) {
-    const script = document.createElement("script");
-    script.src = src;
-    script.async = true;
-    script.onload = onLoad;
-    document.body.appendChild(script);
-  } else {
-    onLoad();
-  }
-}
-
-const PlatformSDK = {
-  platform: null,
-  init(platform) {
-    this.platform = platform;
-    if (platform === "messenger") {
-      loadScript("https://sdk.messenger.com/js/messenger.Extensions.js", () => {
-        console.log("Messenger SDK loaded");
-      });
-    } else if (platform === "telegram") {
-      loadScript("https://telegram.org/js/telegram-web-app.js", () => {
-        console.log("Telegram SDK loaded");
-        if (window.Telegram && window.Telegram.WebApp) {
-          window.Telegram.WebApp.ready();
-        }
-      });
-    }
-  },
-  closeWebview() {
-    if (this.platform === "messenger" && window.MessengerExtensions) {
-      window.MessengerExtensions.requestCloseBrowser(
-        () => console.log("Messenger webview closed"),
-        (err) => console.error("Error closing Messenger webview", err)
-      );
-    } else if (this.platform === "telegram" && window.Telegram && window.Telegram.WebApp) {
-      window.Telegram.WebApp.close();
-      console.log("Telegram webview closed");
-    } else {
-      alert("Close webview not supported on this platform.");
-    }
-  },
-  getUserContext(callback) {
-    if (this.platform === "messenger" && window.MessengerExtensions) {
-      window.MessengerExtensions.getContext(
-        "YOUR_PAGE_ID", // Replace with your Facebook Page ID
-        (context) => callback(null, context),
-        (error) => callback(error, null)
-      );
-    } else if (this.platform === "telegram" && window.Telegram && window.Telegram.WebApp) {
-      callback(null, window.Telegram.WebApp.initDataUnsafe);
-    } else {
-      callback(new Error("Platform SDK not available"), null);
-    }
-  },
-};
+import React, { useState } from "react";
 
 function App() {
-  const [platform, setPlatform] = useState(null);
-  const [userContext, setUserContext] = useState(null);
+  const [formData, setFormData] = useState({
+    FullName: "",
+    Email: "",
+    Phone: "",
+    LoanAmount: "",
+    LoanPurpose: "",
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const p = params.get("platform");
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
-    if (p === "messenger" || p === "telegram") {
-      setPlatform(p);
-      PlatformSDK.init(p);
-    } else {
-      setPlatform("web");
+  const validateForm = () => {
+    if (!formData.FullName.trim()) return "Full Name is required.";
+    if (!formData.Email.trim()) return "Email is required.";
+    if (!formData.Phone.trim()) return "Phone is required.";
+    if (!formData.LoanAmount || isNaN(formData.LoanAmount) || Number(formData.LoanAmount) <= 0)
+      return "Please enter a valid Loan Amount.";
+    if (!formData.LoanPurpose.trim()) return "Loan Purpose is required.";
+    return null;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
     }
-  }, []);
 
-  const fetchUserContext = () => {
-    PlatformSDK.getUserContext((err, ctx) => {
-      if (err) {
-        setError(err.message);
-        setUserContext(null);
-      } else {
-        setUserContext(ctx);
-        setError(null);
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        "https://loan-application-form-airtable.yengeangmey-som.workers.dev",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            FullName: formData.FullName,
+            Email: formData.Email,
+            Phone: formData.Phone,
+            LoanAmount: Number(formData.LoanAmount),
+            LoanPurpose: formData.LoanPurpose,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to submit application.");
       }
-    });
+
+      setMessage("Your loan application has been submitted successfully!");
+      setFormData({
+        FullName: "",
+        Email: "",
+        Phone: "",
+        LoanAmount: "",
+        LoanPurpose: "",
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial, sans-serif" }}>
-      <h1>Multi-Platform Web App</h1>
-      <p>
-        Detected Platform: <strong>{platform}</strong>
-      </p>
-      <button onClick={fetchUserContext} style={{ marginRight: 10 }}>
-        Get User Context
-      </button>
-      <button onClick={() => PlatformSDK.closeWebview()}>Close Webview</button>
+    <div
+      style={{
+        maxWidth: 480,
+        margin: "40px auto",
+        padding: 20,
+        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+        border: "1px solid #ddd",
+        borderRadius: 8,
+        boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+        backgroundColor: "#fff",
+      }}
+    >
+      <h2 style={{ textAlign: "center", marginBottom: 20 }}>Loan Application Form</h2>
 
-      {userContext && (
-        <pre
+      {error && (
+        <div
           style={{
-            background: "#f0f0f0",
+            marginBottom: 15,
             padding: 10,
-            marginTop: 20,
-            maxHeight: 300,
-            overflow: "auto",
-            whiteSpace: "pre-wrap",
+            backgroundColor: "#ffe6e6",
+            color: "#cc0000",
+            borderRadius: 4,
           }}
         >
-          {JSON.stringify(userContext, null, 2)}
-        </pre>
-      )}
-      {error && (
-        <p style={{ color: "red", marginTop: 20 }}>
-          Error: {error}
-        </p>
+          {error}
+        </div>
       )}
 
-      <LoanApplicationForm />
-
-      {platform === "web" && (
-        <p style={{ marginTop: 20 }}>
-          This is a normal web browser without platform SDK.
-        </p>
+      {message && (
+        <div
+          style={{
+            marginBottom: 15,
+            padding: 10,
+            backgroundColor: "#e6ffea",
+            color: "#2d662d",
+            borderRadius: 4,
+          }}
+        >
+          {message}
+        </div>
       )}
+
+      <form onSubmit={handleSubmit} noValidate>
+        <label style={{ display: "block", marginBottom: 6 }}>
+          Full Name<span style={{ color: "red" }}>*</span>
+        </label>
+        <input
+          type="text"
+          name="FullName"
+          value={formData.FullName}
+          onChange={handleChange}
+          placeholder="Your full name"
+          required
+          style={inputStyle}
+          disabled={loading}
+        />
+
+        <label style={{ display: "block", marginBottom: 6, marginTop: 12 }}>
+          Email<span style={{ color: "red" }}>*</span>
+        </label>
+        <input
+          type="email"
+          name="Email"
+          value={formData.Email}
+          onChange={handleChange}
+          placeholder="example@email.com"
+          required
+          style={inputStyle}
+          disabled={loading}
+        />
+
+        <label style={{ display: "block", marginBottom: 6, marginTop: 12 }}>
+          Phone<span style={{ color: "red" }}>*</span>
+        </label>
+        <input
+          type="tel"
+          name="Phone"
+          value={formData.Phone}
+          onChange={handleChange}
+          placeholder="+1 234 567 8900"
+          required
+          style={inputStyle}
+          disabled={loading}
+        />
+
+        <label style={{ display: "block", marginBottom: 6, marginTop: 12 }}>
+          Loan Amount<span style={{ color: "red" }}>*</span>
+        </label>
+        <input
+          type="number"
+          name="LoanAmount"
+          value={formData.LoanAmount}
+          onChange={handleChange}
+          placeholder="Enter amount in USD"
+          required
+          min="1"
+          style={inputStyle}
+          disabled={loading}
+        />
+
+        <label style={{ display: "block", marginBottom: 6, marginTop: 12 }}>
+          Loan Purpose<span style={{ color: "red" }}>*</span>
+        </label>
+        <textarea
+          name="LoanPurpose"
+          value={formData.LoanPurpose}
+          onChange={handleChange}
+          placeholder="Explain the purpose of the loan"
+          required
+          rows="4"
+          style={{ ...inputStyle, resize: "vertical" }}
+          disabled={loading}
+        ></textarea>
+
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            marginTop: 20,
+            width: "100%",
+            padding: "12px",
+            backgroundColor: loading ? "#999" : "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: 4,
+            fontSize: 16,
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "background-color 0.3s ease",
+          }}
+        >
+          {loading ? "Submitting..." : "Submit Application"}
+        </button>
+      </form>
     </div>
   );
 }
+
+const inputStyle = {
+  width: "100%",
+  padding: "10px",
+  fontSize: "14px",
+  borderRadius: "4px",
+  border: "1px solid #ccc",
+  boxSizing: "border-box",
+};
 
 export default App;
